@@ -344,7 +344,7 @@ public class SimpleTimestampFormat extends SimpleDateFormat {
     Date tempDate;
     if ( compatibleToSuperPattern ) {
       tempDate = super.parse( text, pos );
-      return new Timestamp( tempDate.getTime() );
+      return tempDate != null ? new Timestamp( tempDate.getTime() ) : null;
     }
 
     StringBuilder dateText = new StringBuilder( text.substring( pos.getIndex() ) );

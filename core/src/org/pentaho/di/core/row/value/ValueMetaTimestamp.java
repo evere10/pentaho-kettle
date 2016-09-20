@@ -33,6 +33,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.Timestamp;
 import java.text.ParseException;
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -49,7 +50,6 @@ import org.pentaho.di.core.row.ValueMetaInterface;
 import org.pentaho.di.core.row.value.timestamp.SimpleTimestampFormat;
 
 public class ValueMetaTimestamp extends ValueMetaDate {
-
   public ValueMetaTimestamp() {
     this( null );
   }
@@ -247,15 +247,23 @@ public class ValueMetaTimestamp extends ValueMetaDate {
     if ( Utils.isEmpty( string ) ) {
       return null;
     }
-    Timestamp returnValue;
-    try {
-      returnValue = Timestamp.valueOf( string );
-    } catch ( IllegalArgumentException e ) {
+    Timestamp returnValue = null;
+    DateFormat[] formats = { new SimpleTimestampFormat("yyyy-MM-dd'T'HH:mm:ss"),
+                             new SimpleTimestampFormat("yyyy-MM-dd HH:mm:ss"),
+                             new SimpleTimestampFormat("yyyy-MM-dd") };
+    for (DateFormat fmt : formats) {
       try {
-        returnValue = (Timestamp) getDateFormat().parse( string );
-      } catch ( ParseException ex ) {
-        throw new KettleValueException( toString() + " : couldn't convert string [" + string
-            + "] to a timestamp, expecting format [yyyy-mm-dd hh:mm:ss.ffffff]", e );
+        returnValue = (Timestamp) fmt.parse( string );
+        break;
+      } catch ( ParseException pe ) {
+        continue;
+      }
+    }
+    if (returnValue == null) {
+      try {
+        returnValue = Timestamp.valueOf( string );
+      } catch ( IllegalArgumentException ex ) {
+        throw new KettleValueException( toString() + " : couldn't convert string [" + string + "] to a timestamp" );
       }
     }
     return returnValue;
