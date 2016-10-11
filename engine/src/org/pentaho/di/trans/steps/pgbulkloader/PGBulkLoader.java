@@ -223,7 +223,7 @@ public class PGBulkLoader extends BaseStep implements StepInterface {
 
       // any error message?
       //
-      data.errorLogger = new StreamLogger( log, data.psqlProcess.getErrorStream(), "ERROR {0}" );
+      data.errorLogger = new PGErrorStreamLogger( log, data.psqlProcess.getErrorStream(), "ERROR {0}" );
 
       // any output?
       data.outputLogger = new StreamLogger( log, data.psqlProcess.getInputStream(), "OUTPUT {0}" );
