@@ -169,7 +169,7 @@ public class PGBulkLoader extends BaseStep implements StepInterface {
 
         // Close the output stream...
         // will be null if no records (empty stream)
-        if ( data != null ) {
+        if ( data != null && pgCopyOut != null ) {
           pgCopyOut.flush();
           pgCopyOut.endCopy();
 
@@ -234,6 +234,9 @@ public class PGBulkLoader extends BaseStep implements StepInterface {
         if ( valueData != null ) {
           switch ( valueMeta.getType() ) {
             case ValueMetaInterface.TYPE_STRING:
+              // Don't load empty strings into DB, load null instead
+              if ("".equals(valueData))
+                break;
               pgCopyOut.write( data.quote );
 
               // No longer dump the bytes for a Lazy Conversion;
@@ -333,7 +336,7 @@ public class PGBulkLoader extends BaseStep implements StepInterface {
               if ( valueMeta.isStorageBinaryString() ) {
                 pgCopyOut.write( (byte[]) valueData );
               } else {
-                pgCopyOut.write( Double.toString( valueMeta.getNumber( valueData ) ).getBytes() );
+                pgCopyOut.write( Long.toString( valueMeta.getInteger( valueData ) ).getBytes() );
               }
               break;
             case ValueMetaInterface.TYPE_NUMBER:
