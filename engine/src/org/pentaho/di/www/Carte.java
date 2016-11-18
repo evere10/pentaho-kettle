@@ -343,19 +343,10 @@ public class Carte {
       Client client = Client.create( clientConfig );
       client.addFilter( new HTTPBasicAuthFilter( username, password ) );
 
-      // check if the user can access the carte server. Don't really need this call but may want to check it's output at
-      // some point
+      // check if the user can access the carte server
       String contextURL = "http://" + hostname + ":" + port + "/kettle";
-      WebResource resource = client.resource( contextURL + "/status/?xml=Y" );
+      WebResource resource = client.resource( contextURL + "/stopCarte" );
       String response = resource.get( String.class );
-      if ( response == null || !response.contains( "<serverstatus>" ) ) {
-        throw new Carte.CarteCommandException( BaseMessages.getString( PKG, "Carte.Error.NoServerFound", hostname, ""
-            + port ) );
-      }
-
-      // This is the call that matters
-      resource = client.resource( contextURL + "/stopCarte" );
-      response = resource.get( String.class );
       if ( response == null || !response.contains( "Shutting Down" ) ) {
         throw new Carte.CarteCommandException( BaseMessages.getString( PKG, "Carte.Error.NoShutdown", hostname, ""
             + port ) );
