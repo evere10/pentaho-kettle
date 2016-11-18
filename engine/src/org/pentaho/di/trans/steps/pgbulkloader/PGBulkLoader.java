@@ -33,6 +33,7 @@ import java.io.IOException;
 //
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
 
 import org.pentaho.di.core.Const;
 import org.pentaho.di.core.database.Database;
@@ -175,7 +176,6 @@ public class PGBulkLoader extends BaseStep implements StepInterface {
         if ( data != null && pgCopyOut != null ) {
           pgCopyOut.flush();
           pgCopyOut.endCopy();
-
         } 
 
         return false;
@@ -207,19 +207,18 @@ public class PGBulkLoader extends BaseStep implements StepInterface {
 
       return true;
     } catch ( Exception e ) {
+      if (pgCopyOut != null) {
+        try {
+          pgCopyOut.cancelCopy();
+        } catch (SQLException ie) {
+          // safe to ignore, send info about previous exception
+        }
+      }
       logError( BaseMessages.getString( PKG, "GPBulkLoader.Log.ErrorInStep" ), e );
       setErrors( 1 );
       stopAll();
       setOutputDone(); // signal end to receiver(s)
       return false;
-    } finally {
-      if (pgCopyOut != null) {
-        try {
-          pgCopyOut.close();
-        } catch (IOException e) {
-          throw new KettleException(e);
-        }
-      }
     }
   }
 
