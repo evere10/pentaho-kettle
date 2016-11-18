@@ -22,6 +22,8 @@
 
 package org.pentaho.di.trans.steps.pgbulkloader;
 
+import java.io.IOException;
+
 //
 // The "designer" notes of the PostgreSQL bulkloader:
 // ----------------------------------------------
@@ -209,6 +211,14 @@ public class PGBulkLoader extends BaseStep implements StepInterface {
       stopAll();
       setOutputDone(); // signal end to receiver(s)
       return false;
+    } finally {
+      if (pgCopyOut != null) {
+        try {
+          pgCopyOut.close();
+        } catch (IOException e) {
+          throw new KettleException(e);
+        }
+      }
     }
   }
 
