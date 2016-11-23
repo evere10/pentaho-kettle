@@ -162,9 +162,9 @@ public class Const {
   public static final String PATH_SEPARATOR = System.getProperty( "path.separator" );
 
   /**
-   * CR: operating systems specific Carriage Return
+   * CR: Linux Carriage Return for better kettle file diffs
    */
-  public static final String CR = System.getProperty( "line.separator" );
+  public static final String CR = "\n";
 
   /**
    * DOSCR: MS-DOS specific Carriage Return
