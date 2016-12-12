@@ -22,23 +22,22 @@
 
 package org.pentaho.di.trans.steps.http;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.net.UnknownHostException;
 
 
-import org.apache.commons.httpclient.Credentials;
 import org.apache.commons.httpclient.Header;
 import org.apache.commons.httpclient.HostConfiguration;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.NameValuePair;
-import org.apache.commons.httpclient.UsernamePasswordCredentials;
-import org.apache.commons.httpclient.auth.AuthScope;
-import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.util.URIUtil;
 import org.json.simple.JSONObject;
-import org.pentaho.di.cluster.SlaveConnectionManager;
 import org.pentaho.di.core.Const;
 import org.pentaho.di.core.util.Utils;
 import org.pentaho.di.core.exception.KettleException;
@@ -91,6 +90,7 @@ public class HTTP extends BaseStep implements StepInterface {
 
   private Object[] callHttpService( RowMetaInterface rowMeta, Object[] rowData ) throws KettleException {
     String url = determineUrl( rowMeta, rowData );
+    HttpURLConnection urlConn = null;
     try {
       if ( isDetailed() ) {
         logDetailed( BaseMessages.getString( PKG, "HTTP.Log.Connecting", url ) );
@@ -98,53 +98,21 @@ public class HTTP extends BaseStep implements StepInterface {
 
       // Prepare HTTP get
       //
-      HttpClient httpClient = SlaveConnectionManager.getInstance().createHttpClient();
-      HttpMethod method = new GetMethod( url );
+      urlConn = (HttpURLConnection) new URL(url).openConnection();
 
-      // Set timeout
-      if ( data.realConnectionTimeout > -1 ) {
-        httpClient.getHttpConnectionManager().getParams().setConnectionTimeout( data.realConnectionTimeout );
-      }
-      if ( data.realSocketTimeout > -1 ) {
-        httpClient.getHttpConnectionManager().getParams().setSoTimeout( data.realSocketTimeout );
-      }
-
-      if ( !Utils.isEmpty( data.realHttpLogin ) ) {
-        httpClient.getParams().setAuthenticationPreemptive( true );
-        Credentials defaultcreds = new UsernamePasswordCredentials( data.realHttpLogin, data.realHttpPassword );
-        httpClient.getState().setCredentials( AuthScope.ANY, defaultcreds );
-      }
-
-      HostConfiguration hostConfiguration = new HostConfiguration();
-      if ( !Utils.isEmpty( data.realProxyHost ) ) {
-        hostConfiguration.setProxy( data.realProxyHost, data.realProxyPort );
-      }
-
-      // Add Custom HTTP headers
-      if ( data.useHeaderParameters ) {
-        for ( int i = 0; i < data.header_parameters_nrs.length; i++ ) {
-          method.addRequestHeader( data.headerParameters[i].getName(), data.inputRowMeta.getString( rowData,
-              data.header_parameters_nrs[i] ) );
-          if ( isDebug() ) {
-            log.logDebug( BaseMessages.getString( PKG, "HTTPDialog.Log.HeaderValue",
-                data.headerParameters[i].getName(), data.inputRowMeta
-                    .getString( rowData, data.header_parameters_nrs[i] ) ) );
-          }
-        }
-      }
-
-      InputStreamReader inputStreamReader = null;
+      InputStream inputStream = null;
       Object[] newRow = null;
       if ( rowData != null ) {
         newRow = rowData.clone();
       }
       // Execute request
       //
+
       try {
         // used for calculating the responseTime
         long startTime = System.currentTimeMillis();
 
-        int statusCode = requestStatusCode( method, hostConfiguration, httpClient );
+        int statusCode = urlConn.getResponseCode();
         // calculate the responseTime
         long responseTime = System.currentTimeMillis() - startTime;
         if ( log.isDetailed() ) {
@@ -164,41 +132,20 @@ public class HTTP extends BaseStep implements StepInterface {
           } else {
             // if the response is not 401: HTTP Authentication required
             if ( statusCode != 401 ) {
-              // guess encoding
-              //
-              Header[] headers = searchForHeaders( method );
-              String encoding = meta.getEncoding();
-
               // Try to determine the encoding from the Content-Type value
               //
-              if ( Utils.isEmpty( encoding ) ) {
-                String contentType = method.getResponseHeader( "Content-Type" ).getValue();
-                if ( contentType != null && contentType.contains( "charset" ) ) {
-                  encoding = contentType.replaceFirst( "^.*;\\s*charset\\s*=\\s*", "" ).replace( "\"", "" ).trim();
-                }
-              }
               JSONObject json = new JSONObject();
-              for ( Header header : headers ) {
-                json.put( header.getName(), header.getValue() );
-              }
               headerString = json.toJSONString();
 
-              if ( isDebug() ) {
-                log.logDebug( toString(), BaseMessages.getString( PKG, "HTTP.Log.ResponseHeaderEncoding", encoding ) );
-              }
               // the response
-              inputStreamReader = openStream( encoding, method );
-
-              StringBuilder bodyBuffer = new StringBuilder();
-
-              int c;
-              while ( ( c = inputStreamReader.read() ) != -1 ) {
-                bodyBuffer.append( (char) c );
+              inputStream = urlConn.getInputStream();
+              ByteArrayOutputStream result = new ByteArrayOutputStream();
+              byte[] buffer = new byte[1024];
+              int length;
+              while ((length = inputStream.read(buffer)) != -1) {
+                result.write(buffer, 0, length);
               }
-
-              inputStreamReader.close();
-
-              body = bodyBuffer.toString();
+              body = result.toString("UTF-8");
               if ( isDebug() ) {
                 logDebug( "Response body: " + body );
               }
@@ -229,19 +176,13 @@ public class HTTP extends BaseStep implements StepInterface {
         }
 
       } finally {
-        if ( inputStreamReader != null ) {
-          inputStreamReader.close();
-        }
-        // Release current connection to the connection pool once you are done
-        method.releaseConnection();
-        if ( data.realcloseIdleConnectionsTime > -1 ) {
-          httpClient.getHttpConnectionManager().closeIdleConnections( data.realcloseIdleConnectionsTime );
-        }
+        closeQuietly(inputStream);
       }
       return newRow;
     } catch ( UnknownHostException uhe ) {
       throw new KettleException( BaseMessages.getString( PKG, "HTTP.Error.UnknownHostException", uhe.getMessage() ) );
     } catch ( Exception e ) {
+      e.printStackTrace();
       throw new KettleException( BaseMessages.getString( PKG, "HTTP.Log.UnableGetResult", url ), e );
     }
   }
