@@ -2088,7 +2088,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       </classpath>
     </taskdef>
 
-    <path id="tests.path" cache="true">
+    <path id="tests.path">
       <path refid="base.path"/>
       <pathelement location="testclasses"/>
     </path>
